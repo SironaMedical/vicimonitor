@@ -1,7 +1,7 @@
 # vicimonitor
 
 ## Introduction
-`vicimonitor` is a toold designed to be run as a daemon that interacts with the [Versatile IKE Control Interface (VICI) protocol](https://www.strongswan.org/apidoc/md_src_libcharon_plugins_vici_README.html) of [Strongswan](https://www.strongswan.org) to monitor IPSec VPN connections.
+`vicimonitor` is a tool designed to be run as a daemon that interacts with the [Versatile IKE Control Interface (VICI) protocol](https://www.strongswan.org/apidoc/md_src_libcharon_plugins_vici_README.html) of [Strongswan](https://www.strongswan.org) to monitor IPSec VPN connections.
 `vicimonitor` exposes Security Association metrics as an OpenMetrics endpoint as well attempts to initiate Security Associations missing from the list of connections.
 
 ## Usage
