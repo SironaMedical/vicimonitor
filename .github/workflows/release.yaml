@@ -1,5 +1,7 @@
 # .github/workflows/release.yaml
 
+name: Release
+
 on:
   release:
     types: [created]
@@ -19,5 +21,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
         goarch: amd64
-        ldflags:
-          - -X "main.Version=$GITHUB_REF_NAME"
+        ldflags: -X "main.Version=$GITHUB_REF_NAME"
