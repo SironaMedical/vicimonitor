@@ -21,3 +21,11 @@ Usage of vicimonitor:
 
 ## OpenMetrics endpoint
 By default the OpenMetrics endpoint is exposed on `0.0.0.0:9903/metrics`
+
+## Development
+`vicimonitor` requires Go version 1.21.
+After cloning, run `go mod tidy` to install dependencies.
+Tests can be run with `go test`.
+
+### Releasing
+Github releases will automatically build and upload artifacts via this [github action](.github/workflows/release.yaml)
