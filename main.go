@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -53,8 +54,10 @@ func main() {
 		},
 	))
 
+	slog.Info("starting vici poller")
 	go PollVici(session, done)
 
+	Infof("starting OpenMetrics http listener on: %s", listenerString)
 	err = http.ListenAndServe(listenerString, nil)
 	if err != nil {
 		log.Fatal(err)

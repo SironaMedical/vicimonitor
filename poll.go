@@ -2,8 +2,10 @@ package main
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/strongswan/govici/vici"
 )
 
@@ -29,15 +31,21 @@ func PollVici(session *vici.Session, channel chan bool) (conns map[string]*Conn,
 				UpdateSAMetrics(sa)
 			}
 			for _, c := range conns {
-				for childName := range c.Children {
+				for childName, child := range c.Children {
 					if !ChildSAExists(childName, sas[c.Name]) {
+						// Mark Missing CHILD_SA as deleted
+						labels := prometheus.Labels{
+							"name":        childName,
+							"local_ts":    strings.Join(child.LocalTS, ","),
+							"remote_ts":   strings.Join(child.RemoteTS, ","),
+							"parent_name": c.Name,
+						}
+						childState.With(labels).Set((ChildSAStateMap["DELETED"]))
 						Errorf("CHILD_SA %s does not exist, attempting initialization.", childName)
 						err := InitiateSA(childName, session)
 						if err != nil {
 							Errorf("%s", err)
 						}
-					} else {
-						slog.Info("all CHILD_SAs exist")
 					}
 				}
 			}
