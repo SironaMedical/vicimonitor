@@ -52,15 +52,6 @@ var (
 		},
 		[]string{"name"},
 	)
-	childRekeyTime = factory.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "ipsec",
-			Subsystem: "child_sa",
-			Name:      "rekey_seconds",
-			Help:      "Time until Child SA rekey event.",
-		},
-		[]string{"name", "local_ts", "remote_ts", "parent_name"},
-	)
 	childState = factory.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
@@ -88,24 +79,6 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	childPacketsIn = factory.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "ipsec",
-			Subsystem: "child_sa",
-			Name:      "in_packets",
-			Help:      "Child SA Packets In",
-		},
-		[]string{"name", "local_ts", "remote_ts", "parent_name"},
-	)
-	childPacketsOut = factory.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "ipsec",
-			Subsystem: "child_sa",
-			Name:      "out_packets",
-			Help:      "Child SA Packets Out",
-		},
-		[]string{"name", "local_ts", "remote_ts", "parent_name"},
-	)
 )
 
 func UpdateSAMetrics(sa *IkeSA) {
@@ -118,11 +91,8 @@ func UpdateSAMetrics(sa *IkeSA) {
 			"remote_ts":   strings.Join(csa.RemoteTS, ","),
 			"parent_name": sa.Name,
 		}
-		childRekeyTime.With(labels).Set(float64(csa.RekeyTime))
 		childState.With(labels).Set(ChildSAStateMap[csa.State])
 		childBytesIn.With(labels).Set(float64(csa.BytesIn))
 		childBytesOut.With(labels).Set(float64(csa.BytesOut))
-		childPacketsIn.With(labels).Set(float64(csa.PacketsIn))
-		childPacketsOut.With(labels).Set(float64(csa.PacketsOut))
 	}
 }
