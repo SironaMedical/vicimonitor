@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/mitchellh/go-ps"
 )
 
 func TestChildSAExists(t *testing.T) {
@@ -121,6 +123,86 @@ func TestIkeSAEstablished(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsIkeSAEstablished(tc.sourceIkeSA)
+
+			if result != tc.expected {
+				t.Errorf("Expected: %v, got: %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+type testProcess struct {
+	pid  int
+	ppid int
+
+	binary string
+}
+
+func (p *testProcess) Pid() int {
+	return p.pid
+}
+
+func (p *testProcess) PPid() int {
+	return p.ppid
+}
+
+func (p *testProcess) Executable() string {
+	return p.binary
+}
+
+func TestIpsecProcressRunning(t *testing.T) {
+	cases := []struct {
+		name        string
+		sourceProcs []ps.Process
+		expected    bool
+	}{
+		{
+			name:        "empty",
+			expected:    false,
+			sourceProcs: []ps.Process{},
+		},
+		{
+			name:     "no_charon",
+			expected: false,
+			sourceProcs: []ps.Process{
+				&testProcess{
+					pid:    10,
+					ppid:   9,
+					binary: "pluto",
+				},
+			},
+		},
+		{
+			name:     "charon",
+			expected: true,
+			sourceProcs: []ps.Process{
+				&testProcess{
+					pid:    10,
+					ppid:   9,
+					binary: "charon",
+				},
+			},
+		},
+		{
+			name:     "charon_and_pluto",
+			expected: true,
+			sourceProcs: []ps.Process{
+				&testProcess{
+					pid:    10,
+					ppid:   9,
+					binary: "charon",
+				},
+				&testProcess{
+					pid:    20,
+					ppid:   1,
+					binary: "pluto",
+				},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := IsIpsecProcressRunning(tc.sourceProcs)
 
 			if result != tc.expected {
 				t.Errorf("Expected: %v, got: %v", tc.expected, result)

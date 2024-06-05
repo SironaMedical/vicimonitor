@@ -3,6 +3,7 @@ module sironamedical/vicimonitor
 go 1.21.0
 
 require (
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/strongswan/govici v0.7.0
 )

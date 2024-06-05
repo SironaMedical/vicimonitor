@@ -1,6 +1,10 @@
 package main
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/mitchellh/go-ps"
+)
 
 func ChildSAExists(s string, sa *IkeSA) (exists bool) {
 	exists = false
@@ -16,4 +20,15 @@ func ChildSAExists(s string, sa *IkeSA) (exists bool) {
 
 func IsIkeSAEstablished(sa IkeSA) (connected bool) {
 	return strings.EqualFold(sa.State, "ESTABLISHED")
+}
+
+func IsIpsecProcressRunning(procs []ps.Process) (running bool) {
+	running = false
+	for _, p := range procs {
+		if strings.Contains(p.Executable(), "charon") {
+			running = true
+			return
+		}
+	}
+	return
 }
