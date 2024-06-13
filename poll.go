@@ -1,10 +1,12 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/mitchellh/go-ps"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/strongswan/govici/vici"
 )
@@ -19,13 +21,26 @@ func PollVici(session *vici.Session, channel chan bool) (conns map[string]*Conn,
 			slog.Info("stopping vici poller")
 			return
 		case <-ticker.C:
-			conns, err := GetConns(session)
+			procs, err := ps.Processes()
 			if err != nil {
 				Errorf("%s", err)
+				break
+			}
+			if !IsIpsecProcressRunning(procs) {
+				Errorf("IPSec process not running, attempting to start.")
+				err := StartIpsec()
+				if err != nil {
+					Errorf("%s", err)
+					break
+				}
+			}
+			conns, err := GetConns(session)
+			if err != nil {
+				log.Fatal(err)
 			}
 			sas, err := GetSAs(session)
 			if err != nil {
-				Errorf("%s", err)
+				log.Fatal(err)
 			}
 			for _, sa := range sas {
 				UpdateSAMetrics(sa)
