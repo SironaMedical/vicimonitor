@@ -1,15 +1,10 @@
-package main
+package metrics
 
 import (
-	"strings"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	reg           = prometheus.NewRegistry()
-	factory       = promauto.With(reg)
 	IkeSAStateMap = map[string]float64{
 		"CREATED":     0,
 		"CONNECTING":  1,
@@ -34,7 +29,7 @@ var (
 		"DESTROYING": 10,
 	}
 
-	ikeRekeyTime = factory.NewGaugeVec(
+	ikeRekeyTime = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
@@ -43,7 +38,7 @@ var (
 		},
 		[]string{"name"},
 	)
-	ikeState = factory.NewGaugeVec(
+	ikeState = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
@@ -52,7 +47,7 @@ var (
 		},
 		[]string{"name"},
 	)
-	childState = factory.NewGaugeVec(
+	childState = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -61,7 +56,7 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	childBytesIn = factory.NewGaugeVec(
+	childBytesIn = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -70,7 +65,7 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	childBytesOut = factory.NewGaugeVec(
+	childBytesOut = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -81,18 +76,12 @@ var (
 	)
 )
 
-func UpdateSAMetrics(sa *IkeSA) {
-	ikeRekeyTime.With(prometheus.Labels{"name": sa.Name}).Set(float64(sa.RekeyTime))
-	ikeState.With(prometheus.Labels{"name": sa.Name}).Set(IkeSAStateMap[sa.State])
-	for _, csa := range sa.ChildSAs {
-		labels := prometheus.Labels{
-			"name":        csa.Name,
-			"local_ts":    strings.Join(csa.LocalTS, ","),
-			"remote_ts":   strings.Join(csa.RemoteTS, ","),
-			"parent_name": sa.Name,
-		}
-		childState.With(labels).Set(ChildSAStateMap[csa.State])
-		childBytesIn.With(labels).Set(float64(csa.BytesIn))
-		childBytesOut.With(labels).Set(float64(csa.BytesOut))
-	}
+func init() {
+	prometheus.MustRegister(
+		childBytesIn,
+		childBytesOut,
+		childState,
+		ikeRekeyTime,
+		ikeState,
+	)
 }

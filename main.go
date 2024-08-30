@@ -1,65 +1,87 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/strongswan/govici/vici"
+
+	"sironamedical/vicimonitor/pkg/metrics"
 )
 
-var Version = "development"
-
-// Set flags
-var pollInterval int
-var initiateTimeout int
-var listenerString string
-var socketPath string
-var versionFlag bool
-
-func init() {
-	flag.IntVar(&pollInterval, "i", 5, "poll interval duration in seconds for the vici socket")
-	flag.IntVar(&initiateTimeout, "t", 3000, "SA initiate timeout")
-	flag.StringVar(&listenerString, "l", ":9903", "listener address and port")
-	flag.StringVar(&socketPath, "s", "/var/run/charon.vici", "path to vici socket")
-	flag.BoolVar(&versionFlag, "version", false, "print the version of vicimonitor and exit")
-}
-
 func main() {
-
+	listenAddr := flag.String("listen", "0.0.0.0:9000", "The listen address")
+	socketPath := flag.String("socket", "/var/run/charon.vici", "The vici socket path")
+	tickerInterval := flag.Int("interval", 30, "The interval to update metrics in seconds")
+	version := flag.Bool("version", false, "Display the version and exit")
 	flag.Parse()
-	if versionFlag {
+
+	if *version {
 		fmt.Println(Version)
-		os.Exit(0)
+		return
 	}
 
-	// Set up vici client
-	sessionOption := vici.WithSocketPath(socketPath)
-	session, err := vici.NewSession(sessionOption)
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+
+	session, err := vici.NewSession(vici.WithSocketPath(*socketPath))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("error connecting to vici socket ", err)
 	}
 	defer session.Close()
-	done := make(chan bool)
 
-	// Set up OpenMetrics endpoint
-	http.Handle("/metrics", promhttp.HandlerFor(
-		reg,
-		promhttp.HandlerOpts{
-			EnableOpenMetrics: true,
-		},
-	))
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	slog.Info("starting vici poller")
-	go PollVici(session, done)
+	httpServer := &http.Server{Addr: *listenAddr, Handler: promhttp.Handler()}
 
-	Infof("starting OpenMetrics http listener on: %s", listenerString)
-	err = http.ListenAndServe(listenerString, nil)
-	if err != nil {
-		log.Fatal(err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Println("http server error ", err)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		collectMetrics(ctx, session, time.Duration(*tickerInterval))
+	}()
+
+	log.Println("vicimonitor started...")
+	<-sigChan
+
+	log.Println("http server shutting down")
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Println("http server shutdown error ", err)
+	}
+
+	cancel()
+	wg.Wait()
+}
+
+func collectMetrics(ctx context.Context, session *vici.Session, interval time.Duration) {
+	ticker := time.NewTicker(interval * time.Second)
+	defer ticker.Stop()
+
+	monitor := metrics.NewPrometheus(session)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("stopping metric collection")
+			return
+		case <-ticker.C:
+			monitor.Update()
+		}
 	}
 }
