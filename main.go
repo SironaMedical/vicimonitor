@@ -12,11 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/strongswan/govici/vici"
 
 	"sironamedical/vicimonitor/pkg/metrics"
+	"sironamedical/vicimonitor/pkg/vici/messages"
 )
+
 
 func main() {
 	listenAddr := flag.String("listen", "0.0.0.0:9000", "The listen address")
@@ -42,7 +43,9 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	httpServer := &http.Server{Addr: *listenAddr, Handler: promhttp.Handler()}
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", metrics.Handler)
+	httpServer := &http.Server{Addr: *listenAddr, Handler: mux}
 
 	wg.Add(1)
 	go func() {
@@ -80,8 +83,38 @@ func collectMetrics(ctx context.Context, session *vici.Session, interval time.Du
 		case <-ctx.Done():
 			log.Println("stopping metric collection")
 			return
+		case ike := <-monitor.C:
+			if err := initiateIkeSA(session, ike); err != nil {
+				log.Println(err)
+			}
 		case <-ticker.C:
 			monitor.Update()
 		}
 	}
+}
+
+func initiateIkeSA(session *vici.Session, ike string) error {
+	mesg := vici.NewMessage()
+	if err := mesg.Set("ike", ike); err != nil {
+		return err
+	}
+	mesgs, err := session.StreamedCommandRequest("initiate", "control-log", mesg)
+	if err != nil { return nil }
+
+	for _, msg := range mesgs {
+		if err := msg.Err(); err != nil {
+			return err
+		}
+
+		var cLog messages.ControlLog
+		if err = vici.UnmarshalMessage(msg, &cLog); err != nil {
+			return err
+		}
+
+		log.Println(fmt.Printf("%v %v %v", cLog.Level, cLog.Group, cLog.Message))
+		if cLog.Message == "" {
+			break
+		}
+	}
+	return nil
 }

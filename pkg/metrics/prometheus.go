@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -16,10 +17,17 @@ func NewPrometheus(session *vici.Session) *Prometheus {
 
 type Prometheus struct {
 	session *vici.Session
+	C       chan string
 }
 
 func (p *Prometheus) Update() {
 	p.updateSecurityAssociation()
+}
+
+func (p *Prometheus) forceInitiateIke(sa string) {
+	ikeForceRestart.WithLabelValues(sa).Add(1)
+	log.Println(fmt.Sprintf("force restart for ike sa %v",sa))
+	p.C <- sa
 }
 
 func (p *Prometheus) updateSecurityAssociation() {
@@ -43,8 +51,15 @@ func (p *Prometheus) updateSecurityAssociation() {
 				continue
 			}
 
-			ikeState.WithLabelValues(key).Set(IkeSAStateMap[listSAS.State])
+			currentState := IkeSAStateMap[listSAS.State]
+			if currentState > 2 {
+				p.forceInitiateIke(key)
+				return
+			}
+
+			ikeState.WithLabelValues(key).Set(currentState)
 			ikeRekeyTime.WithLabelValues(key).Set(float64(listSAS.ReKeyTime))
+
 			for _, child := range listSAS.Children {
 				lables := prometheus.Labels{
 					"name":        child.Name,
@@ -54,7 +69,13 @@ func (p *Prometheus) updateSecurityAssociation() {
 				}
 				childBytesIn.With(lables).Set(float64(child.BytesIn))
 				childBytesOut.With(lables).Set(float64(child.BytesOut))
-				childState.With(lables).Set(ChildSAStateMap[child.State])
+
+				currentChildState := ChildSAStateMap[child.State]
+				if currentChildState > 3 {
+					p.forceInitiateIke(key)
+					return
+				}
+				childState.With(lables).Set(currentChildState)
 			}
 		}
 	}
