@@ -81,8 +81,8 @@ var (
 		prometheus.CounterOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
-			Name: "restarts",
-			Help: "counter for forced restarts",
+			Name:      "restarts",
+			Help:      "counter for forced restarts",
 		},
 		[]string{"name"},
 	)
@@ -99,8 +99,7 @@ func init() {
 	)
 
 	Handler = promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-			EnableOpenMetrics: true,
-
+		EnableOpenMetrics: true,
 	})
 }
 

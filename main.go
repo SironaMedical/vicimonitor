@@ -18,7 +18,6 @@ import (
 	"sironamedical/vicimonitor/pkg/vici/messages"
 )
 
-
 func main() {
 	listenAddr := flag.String("listen", "0.0.0.0:9000", "The listen address")
 	socketPath := flag.String("socket", "/var/run/charon.vici", "The vici socket path")
@@ -99,7 +98,9 @@ func initiateIkeSA(session *vici.Session, ike string) error {
 		return err
 	}
 	mesgs, err := session.StreamedCommandRequest("initiate", "control-log", mesg)
-	if err != nil { return nil }
+	if err != nil {
+		return nil
+	}
 
 	for _, msg := range mesgs {
 		if err := msg.Err(); err != nil {

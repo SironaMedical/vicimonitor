@@ -26,7 +26,7 @@ func (p *Prometheus) Update() {
 
 func (p *Prometheus) forceInitiateIke(sa string) {
 	ikeForceRestart.WithLabelValues(sa).Add(1)
-	log.Println(fmt.Sprintf("force restart for ike sa %v",sa))
+	log.Println(fmt.Sprintf("force restart for ike sa %v", sa))
 	p.C <- sa
 }
 
