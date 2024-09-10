@@ -1,7 +1,10 @@
 package metrics
 
 import (
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -74,14 +77,30 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
+	ikeForceRestart = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "ipsec",
+			Subsystem: "ike_sa",
+			Name:      "restarts",
+			Help:      "counter for forced restarts",
+		},
+		[]string{"name"},
+	)
 )
 
 func init() {
-	prometheus.MustRegister(
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
 		childBytesIn,
 		childBytesOut,
 		childState,
 		ikeRekeyTime,
 		ikeState,
 	)
+
+	Handler = promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	})
 }
+
+var Handler http.Handler
