@@ -86,6 +86,8 @@ var (
 		},
 		[]string{"name"},
 	)
+
+	Handler http.Handler
 )
 
 func init() {
@@ -94,6 +96,7 @@ func init() {
 		childBytesIn,
 		childBytesOut,
 		childState,
+		ikeForceRestart,
 		ikeRekeyTime,
 		ikeState,
 	)
@@ -102,5 +105,3 @@ func init() {
 		EnableOpenMetrics: true,
 	})
 }
-
-var Handler http.Handler

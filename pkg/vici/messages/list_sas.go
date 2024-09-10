@@ -1,7 +1,7 @@
 package messages
 
 type ListSAS struct {
-	ReKeyTime int64  `vici:"rekey_time"`
+	ReKeyTime int64  `vici:"rekey-time"`
 	State     string `vici:"state"`
 	UniqueID  int64  `vici:"uniqueid"`
 	Version   string `vici:"version"`
