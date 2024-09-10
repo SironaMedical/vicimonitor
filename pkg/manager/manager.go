@@ -15,6 +15,8 @@ type Manager struct {
 	ticker  *time.Ticker
 	metrics *metrics.Collector
 	monitor *monitor.Monitor
+
+	shutdownChan chan struct{}
 }
 
 func NewManager(session *vici.Session, interval time.Duration) *Manager {
@@ -23,6 +25,8 @@ func NewManager(session *vici.Session, interval time.Duration) *Manager {
 		ticker:  time.NewTicker(interval),
 		metrics: metrics.NewCollector(session),
 		monitor: monitor.NewMonitor(session),
+
+		shutdownChan: make(chan struct{}, 1),
 	}
 }
 
@@ -37,12 +41,16 @@ func (m *Manager) Run() {
 			if err := m.monitor.InitiateSA(message); err != nil {
 				log.Println(err)
 			}
+		case <-m.shutdownChan:
+			return
 		}
 	}
 }
 
 func (m *Manager) Shutdown() error {
 	m.ticker.Stop()
+	m.shutdownChan <- struct{}{}
+
 	if err := m.session.Close(); err != nil {
 		return err
 	}

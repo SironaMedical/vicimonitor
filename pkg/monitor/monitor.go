@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"log"
 	"sironamedical/vicimonitor/pkg/vici/messages"
 
@@ -38,13 +37,10 @@ func (m *Monitor) InitiateSA(message *vici.Message) error {
 		if err := msg.Err(); err != nil {
 			return err
 		}
-
 		var cLog messages.ControlLog
 		if err = vici.UnmarshalMessage(msg, &cLog); err != nil {
 			return err
 		}
-
-		log.Println(fmt.Printf("%v %v %v", cLog.Level, cLog.Group, cLog.Message))
 		if cLog.Message == "" {
 			break
 		}
