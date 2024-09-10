@@ -3,38 +3,31 @@ package metrics
 import (
 	"fmt"
 	"log"
+
 	"strings"
+
+	"sironamedical/vicimonitor/pkg/vici/messages"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/strongswan/govici/vici"
-
-	"sironamedical/vicimonitor/pkg/vici/messages"
 )
 
-func NewPrometheus(session *vici.Session) *Prometheus {
-	return &Prometheus{session: session}
+func NewCollector(session *vici.Session) *Collector {
+	return &Collector{
+		session: session,
+		C:       make(chan *vici.Message, 1),
+	}
 }
 
-type Prometheus struct {
+type Collector struct {
 	session *vici.Session
-	C       chan string
+	C       chan *vici.Message
 }
 
-func (p *Prometheus) Update() {
-	p.updateSecurityAssociation()
-}
-
-func (p *Prometheus) forceInitiateIke(sa string) {
-	ikeForceRestart.WithLabelValues(sa).Add(1)
-	log.Println(fmt.Sprintf("force restart for ike sa %v", sa))
-	p.C <- sa
-}
-
-func (p *Prometheus) updateSecurityAssociation() {
-	sas, err := p.session.StreamedCommandRequest("list-sas", "list-sa", nil)
+func (c *Collector) Update() error {
+	sas, err := c.session.StreamedCommandRequest("list-sas", "list-sa", nil)
 	if err != nil {
-		log.Println("Unable to list SAS:", err)
-		return
+		return fmt.Errorf("Unable to run list-sas %v", err)
 	}
 
 	for _, mesg := range sas {
@@ -50,15 +43,20 @@ func (p *Prometheus) updateSecurityAssociation() {
 				log.Println("Error unmarshalling message:", err)
 				continue
 			}
-
 			currentState := IkeSAStateMap[listSAS.State]
-			if currentState > 2 {
-				p.forceInitiateIke(key)
-				return
-			}
-
 			ikeState.WithLabelValues(key).Set(currentState)
 			ikeRekeyTime.WithLabelValues(key).Set(float64(listSAS.ReKeyTime))
+
+			initateMessage := vici.NewMessage()
+			if err := initateMessage.Set("ike", key); err != nil {
+				return err
+			}
+
+			if currentState > 2 {
+				c.C <- initateMessage
+				ikeForceRestart.WithLabelValues(key).Add(1)
+				return nil
+			}
 
 			for _, child := range listSAS.Children {
 				lables := prometheus.Labels{
@@ -67,16 +65,20 @@ func (p *Prometheus) updateSecurityAssociation() {
 					"local_ts":    strings.Join(child.LocalTS, ","),
 					"remote_ts":   strings.Join(child.RemoteTS, ","),
 				}
+				currentChildState := ChildSAStateMap[child.State]
+				childState.With(lables).Set(currentChildState)
 				childBytesIn.With(lables).Set(float64(child.BytesIn))
 				childBytesOut.With(lables).Set(float64(child.BytesOut))
-
-				currentChildState := ChildSAStateMap[child.State]
 				if currentChildState > 3 {
-					p.forceInitiateIke(key)
-					return
+					if err := initateMessage.Set("child", child.Name); err != nil {
+						return err
+					}
+					c.C <- initateMessage
+					ikeForceRestart.WithLabelValues(key).Add(1)
+					return nil
 				}
-				childState.With(lables).Set(currentChildState)
 			}
 		}
 	}
+	return nil
 }

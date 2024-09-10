@@ -14,8 +14,8 @@ import (
 
 	"github.com/strongswan/govici/vici"
 
+	"sironamedical/vicimonitor/pkg/manager"
 	"sironamedical/vicimonitor/pkg/metrics"
-	"sironamedical/vicimonitor/pkg/vici/messages"
 )
 
 func main() {
@@ -32,6 +32,7 @@ func main() {
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	session, err := vici.NewSession(vici.WithSocketPath(*socketPath))
 	if err != nil {
@@ -54,68 +55,25 @@ func main() {
 		}
 	}()
 
+	manager := manager.NewManager(session, time.Duration(*tickerInterval)*time.Second)
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		collectMetrics(ctx, session, time.Duration(*tickerInterval))
+		manager.Run()
 	}()
 
 	log.Println("vicimonitor started...")
 	<-sigChan
 
-	log.Println("http server shutting down")
+	log.Println("vicimonitor shuting down...")
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Println("http server shutdown error ", err)
 	}
 
-	cancel()
+	if err := manager.Shutdown(); err != nil {
+		log.Println("reactor shutdown error ", err)
+	}
+
 	wg.Wait()
-}
-
-func collectMetrics(ctx context.Context, session *vici.Session, interval time.Duration) {
-	ticker := time.NewTicker(interval * time.Second)
-	defer ticker.Stop()
-
-	monitor := metrics.NewPrometheus(session)
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("stopping metric collection")
-			return
-		case ike := <-monitor.C:
-			if err := initiateIkeSA(session, ike); err != nil {
-				log.Println(err)
-			}
-		case <-ticker.C:
-			monitor.Update()
-		}
-	}
-}
-
-func initiateIkeSA(session *vici.Session, ike string) error {
-	mesg := vici.NewMessage()
-	if err := mesg.Set("ike", ike); err != nil {
-		return err
-	}
-	mesgs, err := session.StreamedCommandRequest("initiate", "control-log", mesg)
-	if err != nil {
-		return nil
-	}
-
-	for _, msg := range mesgs {
-		if err := msg.Err(); err != nil {
-			return err
-		}
-
-		var cLog messages.ControlLog
-		if err = vici.UnmarshalMessage(msg, &cLog); err != nil {
-			return err
-		}
-
-		log.Println(fmt.Printf("%v %v %v", cLog.Level, cLog.Group, cLog.Message))
-		if cLog.Message == "" {
-			break
-		}
-	}
-	return nil
 }
