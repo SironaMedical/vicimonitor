@@ -13,16 +13,16 @@ import (
 type Manager struct {
 	session *vici.Session
 	ticker  *time.Ticker
-	metrics metrics.Collector
-	monitor monitor.Monitor
+	metrics *metrics.Collector
+	monitor *monitor.Monitor
 }
 
 func NewManager(session *vici.Session, interval time.Duration) *Manager {
 	return &Manager{
 		session: session,
 		ticker:  time.NewTicker(interval),
-		metrics: *metrics.NewCollector(session),
-		monitor: *monitor.NewMonitor(session),
+		metrics: metrics.NewCollector(session),
+		monitor: monitor.NewMonitor(session),
 	}
 }
 

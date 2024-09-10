@@ -3,7 +3,6 @@ package metrics
 import (
 	"fmt"
 	"log"
-
 	"strings"
 
 	"sironamedical/vicimonitor/pkg/vici/messages"
