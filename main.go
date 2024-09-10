@@ -38,7 +38,6 @@ func main() {
 	if err != nil {
 		log.Fatalln("error connecting to vici socket ", err)
 	}
-	defer session.Close()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
