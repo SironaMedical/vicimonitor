@@ -32,6 +32,9 @@ func (m *Monitor) Run() {
 		select {
 		case <-m.ticker.C:
 			if err := m.monitor(); err != nil {
+				// exit on failure
+				// sessions are not handled
+				// simpler to let systemd restart for now
 				log.Fatalln(err)
 			}
 		case <-m.shutdownChan:
@@ -188,9 +191,8 @@ func (m *Monitor) initiateIkeSAs(ike string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Initiating Ike SAs with args: %#v\n", initiateArgs)
+	log.Printf("Initiating Ike SA: %v\n", ike)
 	resp, err := m.session.CommandRequest("initiate", initiateArgs)
-
 	if err != nil {
 		return err
 	}
