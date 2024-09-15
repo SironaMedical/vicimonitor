@@ -32,7 +32,7 @@ var (
 		"DESTROYING": 10,
 	}
 
-	ikeRekeyTime = prometheus.NewGaugeVec(
+	IkeRekeyTime = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
@@ -41,7 +41,7 @@ var (
 		},
 		[]string{"name"},
 	)
-	ikeState = prometheus.NewGaugeVec(
+	IkeState = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
@@ -50,7 +50,7 @@ var (
 		},
 		[]string{"name"},
 	)
-	childState = prometheus.NewGaugeVec(
+	ChildState = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -59,7 +59,7 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	childBytesIn = prometheus.NewGaugeVec(
+	ChildBytesIn = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -68,7 +68,7 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	childBytesOut = prometheus.NewGaugeVec(
+	ChildBytesOut = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ipsec",
 			Subsystem: "child_sa",
@@ -77,7 +77,7 @@ var (
 		},
 		[]string{"name", "local_ts", "remote_ts", "parent_name"},
 	)
-	ikeForceRestart = prometheus.NewCounterVec(
+	IkeForceRestart = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "ipsec",
 			Subsystem: "ike_sa",
@@ -93,14 +93,13 @@ var (
 func init() {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		childBytesIn,
-		childBytesOut,
-		childState,
-		ikeForceRestart,
-		ikeRekeyTime,
-		ikeState,
+		ChildBytesIn,
+		ChildBytesOut,
+		ChildState,
+		IkeForceRestart,
+		IkeRekeyTime,
+		IkeState,
 	)
-
 	Handler = promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		EnableOpenMetrics: true,
 	})
