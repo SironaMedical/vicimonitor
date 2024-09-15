@@ -52,7 +52,6 @@ func (m *Monitor) Shutdown() error {
 	return nil
 }
 
-
 // Each connection has an expected number of Child SAs based on the number of local and remote traffic selectors.
 // We compare the number of Child SAs to the expected number and if they do not match we initiate the IKE SAs.
 func (m *Monitor) monitor() error {
@@ -83,6 +82,9 @@ func (m *Monitor) monitor() error {
 		metrics.IkeState.WithLabelValues(name).Set(metrics.IkeSAStateMap[sa.State])
 		metrics.IkeRekeyTime.WithLabelValues(name).Set(float64(sa.ReKeyTime))
 		for _, child := range sa.Children {
+			metrics.ChildBytesIn.WithLabelValues(child.Name, name).Set(float64(child.BytesIn))
+			metrics.ChildBytesOut.WithLabelValues(child.Name, name).Set(float64(child.BytesOut))
+
 			childState := metrics.ChildSAStateMap[child.State]
 			metrics.ChildState.WithLabelValues(
 				child.Name,
