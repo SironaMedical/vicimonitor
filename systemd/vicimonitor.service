@@ -1,0 +1,10 @@
+[Unit]
+Description=vicimonitor
+After=network.target strongswan.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/vicimonitor
+
+[Install]
+WantedBy=multi-user.target

@@ -14,8 +14,8 @@ import (
 
 	"github.com/strongswan/govici/vici"
 
-	"sironamedical/vicimonitor/pkg/manager"
 	"sironamedical/vicimonitor/pkg/metrics"
+	"sironamedical/vicimonitor/pkg/monitor"
 )
 
 func main() {
@@ -54,12 +54,12 @@ func main() {
 		}
 	}()
 
-	manager := manager.NewManager(session, time.Duration(*tickerInterval)*time.Second)
+	monitor := monitor.NewMonitor(session, time.Duration(*tickerInterval)*time.Second)
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		manager.Run()
+		monitor.Run()
 	}()
 
 	log.Println("vicimonitor started...")
@@ -70,7 +70,7 @@ func main() {
 		log.Println("http server shutdown error ", err)
 	}
 
-	if err := manager.Shutdown(); err != nil {
+	if err := monitor.Shutdown(); err != nil {
 		log.Println("reactor shutdown error ", err)
 	}
 
