@@ -10,6 +10,15 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go test -v ./...
   golangci:
     name: lint
     runs-on: ubuntu-latest
