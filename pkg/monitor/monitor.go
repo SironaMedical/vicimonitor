@@ -82,7 +82,7 @@ func (m *Monitor) monitor() error {
 		metrics.IkeState.WithLabelValues(name).Set(metrics.IkeSAStateMap[sa.State])
 		metrics.IkeRekeyTime.WithLabelValues(name).Set(float64(sa.ReKeyTime))
 		for _, child := range sa.Children {
-			promLabels := []string{name, strings.Join(child.LocalTS, ","), strings.Join(child.RemoteTS, ","), child.Name}
+			promLabels := []string{child.Name, strings.Join(child.LocalTS, ","), strings.Join(child.RemoteTS, ","), name}
 			childState := metrics.ChildSAStateMap[child.State]
 
 			metrics.ChildBytesIn.WithLabelValues(promLabels...).Set(float64(child.BytesIn))
