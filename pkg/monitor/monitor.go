@@ -11,19 +11,24 @@ import (
 	"github.com/strongswan/govici/vici"
 )
 
-func NewMonitor(session *vici.Session, interval time.Duration) *Monitor {
-	return &Monitor{
-		session: session,
-		ticker:  time.NewTicker(interval),
+type SAMapKey struct {
+	name string
+	id   int64
+}
 
+func NewMonitor(session *vici.Session, interval time.Duration, initiate bool) *Monitor {
+	return &Monitor{
+		session:      session,
+		ticker:       time.NewTicker(interval),
+		initiate:     initiate,
 		shutdownChan: make(chan struct{}),
 	}
 }
 
 type Monitor struct {
-	ticker  *time.Ticker
-	session *vici.Session
-
+	ticker       *time.Ticker
+	session      *vici.Session
+	initiate     bool
 	shutdownChan chan struct{}
 }
 
@@ -78,11 +83,11 @@ func (m *Monitor) monitor() error {
 	// based on ChildSAStateMap values
 	accetableStates := []int{0, 1, 2, 3, 4, 5, 6, 7}
 	accetableCountMap := make(map[string]int)
-	for name, sa := range securityAssociations {
-		metrics.IkeState.WithLabelValues(name).Set(metrics.IkeSAStateMap[sa.State])
-		metrics.IkeRekeyTime.WithLabelValues(name).Set(float64(sa.ReKeyTime))
+	for mk, sa := range securityAssociations {
+		metrics.IkeState.WithLabelValues(mk.name).Set(metrics.IkeSAStateMap[sa.State])
+		metrics.IkeRekeyTime.WithLabelValues(mk.name).Set(float64(sa.ReKeyTime))
 		for _, child := range sa.Children {
-			promLabels := []string{child.Name, strings.Join(child.LocalTS, ","), strings.Join(child.RemoteTS, ","), name}
+			promLabels := []string{child.Name, strings.Join(child.LocalTS, ","), strings.Join(child.RemoteTS, ","), mk.name}
 			childState := metrics.ChildSAStateMap[child.State]
 
 			metrics.ChildBytesIn.WithLabelValues(promLabels...).Set(float64(child.BytesIn))
@@ -97,16 +102,34 @@ func (m *Monitor) monitor() error {
 		}
 	}
 
-	for conn, tunnels := range connTunnelCountMap {
-		for tunnel, count := range tunnels {
-			if count != accetableCountMap[tunnel] {
-				log.Printf("Connection %s, Tunnel %s, Found %d, Expected %d\n", conn, tunnel, accetableCountMap[tunnel], count)
-				if err := m.initiateIkeSAs(conn); err != nil {
-					return err
+	if m.initiate {
+		for conn, tunnels := range connTunnelCountMap {
+			for tunnel, count := range tunnels {
+				if count != accetableCountMap[tunnel] {
+					log.Printf("Connection %s, Tunnel %s, Found %d, Expected %d\n", conn, tunnel, accetableCountMap[tunnel], count)
+					if err := m.initiateIkeSAs(conn); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
+
+
+	allKeys := []SAMapKey{}
+	for k := range securityAssociations {
+		allKeys = append(allKeys, k)
+	}
+
+	metrics.OverLappingSAs.Reset()
+	for i := 0; i < len(allKeys); i++ {
+		for j := i + 1; j < len(allKeys); j++ {
+			if allKeys[i].name == allKeys[j].name {
+				metrics.OverLappingSAs.WithLabelValues(allKeys[i].name).Set(1)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -154,13 +177,13 @@ func (m *Monitor) getConnections() (map[string]messages.ListConn, error) {
 	return connections, nil
 }
 
-func (m *Monitor) getSecurityAssociations() (map[string]messages.ListSAS, error) {
+func (m *Monitor) getSecurityAssociations() (map[SAMapKey]messages.ListSAS, error) {
 	sas, err := m.session.StreamedCommandRequest("list-sas", "list-sa", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	securityAssociations := make(map[string]messages.ListSAS)
+	securityAssociations := make(map[SAMapKey]messages.ListSAS)
 	for _, sa := range sas {
 		if err := sa.Err(); err != nil {
 			return nil, err
@@ -172,7 +195,8 @@ func (m *Monitor) getSecurityAssociations() (map[string]messages.ListSAS, error)
 			if err := vici.UnmarshalMessage(inner, &listSAS); err != nil {
 				return nil, err
 			}
-			securityAssociations[key] = listSAS
+			sk := SAMapKey{name: key, id: listSAS.UniqueID}
+			securityAssociations[sk] = listSAS
 		}
 	}
 
