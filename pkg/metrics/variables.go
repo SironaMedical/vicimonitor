@@ -87,6 +87,15 @@ var (
 		[]string{"name"},
 	)
 
+	OverLappingSAs = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "ipsec",
+			Subsystem: "sa",
+			Name:      "overlapping",
+		},
+		[]string{"name"},
+	)
+
 	Handler http.Handler
 )
 
@@ -99,6 +108,7 @@ func init() {
 		IkeForceRestart,
 		IkeRekeyTime,
 		IkeState,
+		OverLappingSAs,
 	)
 	Handler = promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		EnableOpenMetrics: true,

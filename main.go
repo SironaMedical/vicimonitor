@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sironamedical/vicimonitor/pkg/metrics"
+	"sironamedical/vicimonitor/pkg/monitor"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/strongswan/govici/vici"
-
-	"sironamedical/vicimonitor/pkg/metrics"
-	"sironamedical/vicimonitor/pkg/monitor"
 )
 
 func main() {
 	listenAddr := flag.String("listen", "0.0.0.0:9000", "The listen address")
+	reinitiate := flag.Bool("reinitiate", false, "Attempt to initiate SAs")
 	socketPath := flag.String("socket", "/var/run/charon.vici", "The vici socket path")
 	tickerInterval := flag.Int("interval", 30, "The interval to update metrics in seconds")
 	version := flag.Bool("version", false, "Display the version and exit")
@@ -54,7 +54,7 @@ func main() {
 		}
 	}()
 
-	monitor := monitor.NewMonitor(session, time.Duration(*tickerInterval)*time.Second)
+	monitor := monitor.NewMonitor(session, time.Duration(*tickerInterval)*time.Second, *reinitiate)
 
 	wg.Add(1)
 	go func() {
