@@ -60,6 +60,11 @@ func (m *Monitor) Shutdown() error {
 // Each connection has an expected number of Child SAs based on the number of local and remote traffic selectors.
 // We compare the number of Child SAs to the expected number and if they do not match we initiate the IKE SAs.
 func (m *Monitor) monitor() error {
+	// reset these metrics
+	// when strongswan deletes an SA we have no way to know
+	metrics.ChildState.Reset()
+	metrics.IkeState.Reset()
+
 	connections, err := m.getConnections()
 	if err != nil {
 		return err
@@ -114,7 +119,6 @@ func (m *Monitor) monitor() error {
 			}
 		}
 	}
-
 
 	allKeys := []SAMapKey{}
 	for k := range securityAssociations {
